@@ -307,7 +307,8 @@ def show_dashboard():
     """Display dashboard with analytics"""
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-            st.title("EndocarePro")    
+        st.title("EndocarePro")    
+    
     # --- Section for new breakdown alerts ---
     with st.container(border=True):
         st.subheader(" Alertes de Pannes Récentes")
@@ -383,63 +384,58 @@ def show_dashboard():
                 <h1 style="margin: 10px 0 0 0; color: white; font-size: 36px;">{:.1f}%</h1>
             </div>
             """.format(malfunction_percentage), unsafe_allow_html=True)
-    # Replace the existing availability chart section in show_dashboard() function
-    # Starting from "# NEW: Availability Chart by Endoscope Type" until the end of that section
 
-# Replace your availability chart section in show_dashboard() with this:
+    # NEW: Availability Chart by Endoscope Type
+    st.divider()
+    with st.container(border=True):
+        availability_stats = db.get_endoscope_availability_by_type()
 
-# NEW Availability Chart by Endoscope Type
-st.divider()
-with st.container(border=True):
-    availability_stats = db.get_endoscope_availability_by_type()
-
-    if not availability_stats.empty:
-        # Create the grouped bar chart with simplified layout
-        fig_availability = go.Figure()
-        
-        # Add availability bars (dark green)
-        fig_availability.add_trace(go.Bar(
-            name='Disponibilité (%)',
-            x=availability_stats['type'],
-            y=availability_stats['disponibilite_pct'],
-            marker_color='#2E7D32',
-            text=availability_stats['disponibilite_pct'].apply(lambda x: f'{x}%'),
-            textposition='auto',
-        ))
-        
-        # Add unavailability bars (coral red)
-        fig_availability.add_trace(go.Bar(
-            name='Indisponibilité (%)',
-            x=availability_stats['type'],
-            y=availability_stats['indisponibilite_pct'],
-            marker_color='#E57373',
-            text=availability_stats['indisponibilite_pct'].apply(lambda x: f'{x}%' if x > 0 else ''),
-            textposition='auto',
-        ))
-        
-        # Simplified layout that won't cause errors
-        fig_availability.update_layout(
-            title="Taux de disponibilité et d'indisponibilité des endoscopes",
-            xaxis_title="",
-            yaxis_title="Taux (%)",
-            barmode='group',
-            height=500,
-            showlegend=True,
-            template="plotly_white"
-        )
-        
-        st.plotly_chart(fig_availability, use_container_width=True, key="plotly_availability")
-        
-        # Add a summary table below the chart
-        with st.expander("Détails par Type d'Endoscope"):
-            display_stats = availability_stats[['type', 'total', 'fonctionnel', 'en_panne', 'disponibilite_pct', 'indisponibilite_pct']].copy()
-            display_stats.columns = ['Type', 'Total', 'Fonctionnels', 'En Panne', 'Disponibilité (%)', 'Indisponibilité (%)']
-            st.dataframe(display_stats, use_container_width=True)
-    else:
-        st.info("Aucune donnée disponible pour le graphique de disponibilité")
+        if not availability_stats.empty:
+            # Create the grouped bar chart with simplified layout
+            fig_availability = go.Figure()
+            
+            # Add availability bars (dark green)
+            fig_availability.add_trace(go.Bar(
+                name='Disponibilité (%)',
+                x=availability_stats['type'],
+                y=availability_stats['disponibilite_pct'],
+                marker_color='#2E7D32',
+                text=availability_stats['disponibilite_pct'].apply(lambda x: f'{x}%'),
+                textposition='auto',
+            ))
+            
+            # Add unavailability bars (coral red)
+            fig_availability.add_trace(go.Bar(
+                name='Indisponibilité (%)',
+                x=availability_stats['type'],
+                y=availability_stats['indisponibilite_pct'],
+                marker_color='#E57373',
+                text=availability_stats['indisponibilite_pct'].apply(lambda x: f'{x}%' if x > 0 else ''),
+                textposition='auto',
+            ))
+            
+            # Simplified layout that won't cause errors
+            fig_availability.update_layout(
+                title="Taux de disponibilité et d'indisponibilité des endoscopes",
+                xaxis_title="",
+                yaxis_title="Taux (%)",
+                barmode='group',
+                height=500,
+                showlegend=True,
+                template="plotly_white"
+            )
+            
+            st.plotly_chart(fig_availability, use_container_width=True, key="plotly_availability")
+            
+            # Add a summary table below the chart
+            with st.expander("Détails par Type d'Endoscope"):
+                display_stats = availability_stats[['type', 'total', 'fonctionnel', 'en_panne', 'disponibilite_pct', 'indisponibilite_pct']].copy()
+                display_stats.columns = ['Type', 'Total', 'Fonctionnels', 'En Panne', 'Disponibilité (%)', 'Indisponibilité (%)']
+                st.dataframe(display_stats, use_container_width=True)
+        else:
+            st.info("Aucune donnée disponible pour le graphique de disponibilité")
 
     # Original charts (keep existing ones)
-     # Original charts (keep existing ones)
     col1, col2 = st.columns(2)
     with col1:
         with st.container(border=True):
@@ -471,6 +467,7 @@ with st.container(border=True):
                 st.plotly_chart(fig_location, use_container_width=True, key="plotly_location")
             else:
                 st.info("Aucune donnée disponible")
+
 @require_role(['admin'])
 def show_admin_interface():
     """Admin interface for user management"""
