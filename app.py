@@ -307,8 +307,7 @@ def show_dashboard():
     """Display dashboard with analytics"""
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        st.title("EndocarePro")    
-    
+            st.title("EndocarePro")    
     # --- Section for new breakdown alerts ---
     with st.container(border=True):
         st.subheader(" Alertes de Pannes Récentes")
@@ -384,6 +383,10 @@ def show_dashboard():
                 <h1 style="margin: 10px 0 0 0; color: white; font-size: 36px;">{:.1f}%</h1>
             </div>
             """.format(malfunction_percentage), unsafe_allow_html=True)
+    # Replace the existing availability chart section in show_dashboard() function
+    # Starting from "# NEW: Availability Chart by Endoscope Type" until the end of that section
+
+# Replace your availability chart section in show_dashboard() with this:
 
     # NEW: Availability Chart by Endoscope Type
     st.divider()
@@ -391,7 +394,7 @@ def show_dashboard():
         availability_stats = db.get_endoscope_availability_by_type()
 
         if not availability_stats.empty:
-            # Create the grouped bar chart with simplified layout
+            # Create the grouped bar chart with proper side-by-side grouping
             fig_availability = go.Figure()
             
             # Add availability bars (dark green)
@@ -399,9 +402,12 @@ def show_dashboard():
                 name='Disponibilité (%)',
                 x=availability_stats['type'],
                 y=availability_stats['disponibilite_pct'],
-                marker_color='#2E7D32',
+                marker_color='#2E7D32',  # Dark green
                 text=availability_stats['disponibilite_pct'].apply(lambda x: f'{x}%'),
                 textposition='auto',
+                textfont=dict(color='white', size=12, family='Arial', weight='bold'),
+                width=0.4,  # Make bars thinner for better grouping
+                offset=-0.2,  # Position for grouping
             ))
             
             # Add unavailability bars (coral red)
@@ -409,14 +415,16 @@ def show_dashboard():
                 name='Indisponibilité (%)',
                 x=availability_stats['type'],
                 y=availability_stats['indisponibilite_pct'],
-                marker_color='#E57373',
+                marker_color='#E57373',  # Coral red
                 text=availability_stats['indisponibilite_pct'].apply(lambda x: f'{x}%' if x > 0 else ''),
                 textposition='auto',
+                textfont=dict(color='white', size=12, family='Arial', weight='bold'),
+                width=0.4,  # Make bars thinner for better grouping
+                offset=0.2,  # Position for grouping
             ))
             
-            # Simplified layout that won't cause errors
+            # Update layout for proper grouping (NOT stacking)
             fig_availability.update_layout(
-<<<<<<< HEAD
                 title=dict(
                     text="Taux de disponibilité et d'indisponibilité des endoscopes",
                     font=dict(size=16, color='black', family='Arial'),
@@ -447,18 +455,31 @@ def show_dashboard():
                 barmode='group',  # THIS IS KEY - Group bars side by side, not stack
                 bargap=0.6,  # Space between groups
                 bargroupgap=0.15,  # Space between bars in the same group
-=======
-                title="Taux de disponibilité et d'indisponibilité des endoscopes",
-                xaxis_title="",
-                yaxis_title="Taux (%)",
-                barmode='group',
->>>>>>> e0bde838d253f5d5491932e50a0077a87b101583
                 height=500,
                 showlegend=True,
-                template="plotly_white"
+                legend=dict(
+                    orientation="v",
+                    yanchor="top",
+                    y=0.98,
+                    xanchor="right",
+                    x=0.98,
+                    bgcolor="rgba(255,255,255,0.8)",
+                    bordercolor="black",
+                    borderwidth=1,
+                    font=dict(size=11, color='black', family='Arial')
+                ),
+                plot_bgcolor='white',
+                paper_bgcolor='white',
+                margin=dict(l=60, r=60, t=80, b=120)
             )
             
+            # Add borders around the plot area
+            fig_availability.update_xaxes(mirror=True)
+            fig_availability.update_yaxes(mirror=True)
+            
             st.plotly_chart(fig_availability, use_container_width=True, key="plotly_availability")
+            
+            
             
             # Add a summary table below the chart
             with st.expander("Détails par Type d'Endoscope"):
@@ -469,6 +490,7 @@ def show_dashboard():
             st.info("Aucune donnée disponible pour le graphique de disponibilité")
 
     # Original charts (keep existing ones)
+     # Original charts (keep existing ones)
     col1, col2 = st.columns(2)
     with col1:
         with st.container(border=True):
@@ -500,7 +522,6 @@ def show_dashboard():
                 st.plotly_chart(fig_location, use_container_width=True, key="plotly_location")
             else:
                 st.info("Aucune donnée disponible")
-
 @require_role(['admin'])
 def show_admin_interface():
     """Admin interface for user management"""
@@ -1197,6 +1218,5 @@ def show_archives_interface():
                         st.error(f"❌ Erreur lors de la génération du PDF: {str(e)}")
             else:
                 st.info("Aucun endoscope dans l'inventaire.")
-
 if __name__ == "__main__":
     main()
