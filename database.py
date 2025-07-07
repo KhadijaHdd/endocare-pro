@@ -395,7 +395,7 @@ class DatabaseManager:
         conn = self.get_connection()
         try:
             query = f"""
-                SELECT endoscope, numero_serie, date_desinfection, nom_operateur, nature_panne
+                SELECT endoscope, numero_serie, date_desinfection, nom_operateur, nature_panne, salle
                 FROM sterilisation_reports
                 WHERE etat_endoscope = 'en panne' AND date_desinfection >= date('now', '-{days} days')
                 ORDER BY date_desinfection DESC

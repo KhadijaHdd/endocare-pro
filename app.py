@@ -262,46 +262,34 @@ def load_css_file(css_file_path):
     except FileNotFoundError:
         st.error(f"CSS file not found: {css_file_path}")
 
-def main():
-    # Check authentication
-    if not check_authentication():
-        login_form()
-        return
+def debug_salle_database():
+    """Check what's actually in the salle field"""
+    st.subheader("🔍 Database Salle Debug")
     
+    query = """
+    SELECT id, endoscope, salle, LENGTH(salle) as salle_length, 
+           CASE 
+               WHEN salle = '' THEN 'EMPTY STRING'
+               WHEN salle IS NULL THEN 'NULL'
+               ELSE 'HAS VALUE'
+           END as salle_status
+    FROM sterilisation_reports 
+    WHERE etat_endoscope = 'en panne'
+    ORDER BY id DESC 
+    LIMIT 5
+    """
     
-    # Sidebar navigation
-    st.sidebar.image('attached_assets/logo.webp', use_container_width=True)
-    st.sidebar.title(f"Bonjour {get_username()}")
-    st.sidebar.write(f"**Rôle:** {get_user_role()}")
-    
-    # Navigation menu based on role
-    user_role = get_user_role()
-    
-    if user_role == 'admin':
-        menu_options = ["Dashboard", "Gestion des Utilisateurs", "Archives"]
-    elif user_role == 'biomedical':
-        menu_options = ["Dashboard", "Gestion Inventaire", "Archives"]
-    elif user_role == 'sterilisation':
-        menu_options = ["Dashboard", "Rapports de Stérilisation", "Archives"]
-    else:
-        menu_options = ["Dashboard"]
-    
-    selected_page = st.sidebar.selectbox("Navigation", menu_options)
-    
-    if st.sidebar.button("Déconnexion"):
-        logout()
-    
-    # Main content based on selected page
-    if selected_page == "Dashboard":
-        show_dashboard()
-    elif selected_page == "Gestion des Utilisateurs":
-        show_admin_interface()
-    elif selected_page == "Gestion Inventaire":
-        show_biomedical_interface()
-    elif selected_page == "Rapports de Stérilisation":
-        show_sterilization_interface()
-    elif selected_page == "Archives":
-        show_archives_interface()
+    try:
+        conn = db.get_connection()
+        result = conn.execute(query).fetchall()
+        
+        st.write("**Direct Database Results:**")
+        for row in result:
+            st.write(f"ID: {row[0]}, Endoscope: {row[1]}, Salle: '{row[2]}', Length: {row[3]}, Status: {row[4]}")
+        
+        conn.close()
+    except Exception as e:
+        st.error(f"Error: {e}")
 
 def show_dashboard():
     """Display dashboard with analytics"""
@@ -313,28 +301,48 @@ def show_dashboard():
         st.subheader(" Alertes de Pannes Récentes")
         recent_breakdowns = db.get_recent_breakdowns(days=7)
 
-        if not recent_breakdowns.empty:
+        if not recent_breakdowns.empty:            
             # Show notification count
             breakdown_count = len(recent_breakdowns)
             if breakdown_count == 1:
                 st.error(f" **{breakdown_count} NOUVELLE ALERTE DE PANNE**")
             else:
                 st.error(f" **{breakdown_count} NOUVELLES ALERTES DE PANNES**")
-            
-            # Show each breakdown with enhanced styling
+            # Display breakdown alerts with safe column access
             for idx, report in recent_breakdowns.iterrows():
                 with st.expander(f" PANNE {idx+1} - {report['endoscope']}", expanded=True):
                     col1, col2 = st.columns([3, 1])
                     with col1:
-                        st.warning(
-                            f"**Date:** {report['date_desinfection']}\n\n"
-                            f"**Signalé par:** {report['nom_operateur']}\n\n"
-                            f"**Endoscope:** {report['endoscope']} (N/S: {report['numero_serie']})\n\n"
-                            f"**Nature de la panne:** {report.get('nature_panne', 'Non spécifiée')}\n\n"
-                            f"**Salle:** {report.get('salle', 'Non spécifiée')}"
-                        )
+                        
+                        # SAFE column access with fallbacks
+                        salle_value = report.get('salle', None)
+                        if salle_value is None or pd.isna(salle_value) or str(salle_value).strip() == '':
+                            salle_display = 'Non spécifiée'
+                        else:
+                            salle_display = str(salle_value).strip()
+                        
+                        nature_panne_value = report.get('nature_panne', None)
+                        if nature_panne_value is None or pd.isna(nature_panne_value) or str(nature_panne_value).strip() == '':
+                            nature_panne_display = 'Non spécifiée'
+                        else:
+                            nature_panne_display = str(nature_panne_value).strip()
+                                               
+                        # Safe display of breakdown information
+                        breakdown_info = f"""
+**Date:** {report.get('date_desinfection', 'N/A')}
+
+**Signalé par:** {report.get('nom_operateur', 'N/A')}
+
+**Endoscope:** {report.get('endoscope', 'N/A')} (N/S: {report.get('numero_serie', 'N/A')})
+
+**Nature de la panne:** {nature_panne_display}
+
+**Salle:** {salle_display}
+"""
+                        
+                        st.warning(breakdown_info)
         else:
-            st.success(" **AUCUNE PANNE RÉCENTE** - Tous les endoscopes fonctionnent correctement au cours des 7 derniers jours.")
+            st.success("✅ **AUCUNE PANNE RÉCENTE** - Tous les endoscopes fonctionnent correctement au cours des 7 derniers jours.")
 
     st.divider()
 
@@ -383,10 +391,6 @@ def show_dashboard():
                 <h1 style="margin: 10px 0 0 0; color: white; font-size: 36px;">{:.1f}%</h1>
             </div>
             """.format(malfunction_percentage), unsafe_allow_html=True)
-    # Replace the existing availability chart section in show_dashboard() function
-    # Starting from "# NEW: Availability Chart by Endoscope Type" until the end of that section
-
-# Replace your availability chart section in show_dashboard() with this:
 
     # NEW: Availability Chart by Endoscope Type
     st.divider()
@@ -479,8 +483,6 @@ def show_dashboard():
             
             st.plotly_chart(fig_availability, use_container_width=True, key="plotly_availability")
             
-            
-            
             # Add a summary table below the chart
             with st.expander("Détails par Type d'Endoscope"):
                 display_stats = availability_stats[['type', 'total', 'fonctionnel', 'en_panne', 'disponibilite_pct', 'indisponibilite_pct']].copy()
@@ -490,7 +492,6 @@ def show_dashboard():
             st.info("Aucune donnée disponible pour le graphique de disponibilité")
 
     # Original charts (keep existing ones)
-     # Original charts (keep existing ones)
     col1, col2 = st.columns(2)
     with col1:
         with st.container(border=True):
@@ -522,6 +523,10 @@ def show_dashboard():
                 st.plotly_chart(fig_location, use_container_width=True, key="plotly_location")
             else:
                 st.info("Aucune donnée disponible")
+
+
+
+
 @require_role(['admin'])
 def show_admin_interface():
     """Admin interface for user management"""
@@ -813,8 +818,15 @@ def show_sterilization_interface():
         endoscopes_df = db.get_all_endoscopes()
         
         if endoscopes_df.empty:
-            st.warning(" Aucun endoscope n'est disponible dans l'inventaire. Veuillez en ajouter un avant de créer un rapport.")
+            st.warning("⚠️ Aucun endoscope n'est disponible dans l'inventaire. Veuillez en ajouter un avant de créer un rapport.")
             return
+
+        # Initialize session state for form persistence
+        if 'steril_form_data' not in st.session_state:
+            st.session_state.steril_form_data = {
+                'nature_panne': '',
+                'etat_endoscope': 'fonctionnel'
+            }
 
         with st.form("sterilisation_report_form", clear_on_submit=True):
             col1, col2 = st.columns(2)
@@ -862,49 +874,109 @@ def show_sterilization_interface():
                 salle = st.text_input("Salle*")
                 type_acte = st.text_input("Type d'acte*")
                 
-                st.write("**    État**")
+                st.write("**État**")
                 etat_endoscope = st.selectbox("État de l'endoscope*", ['fonctionnel', 'en panne'])
 
-                # Toujours afficher nature de la panne, mais avec validation conditionnelle
-                if etat_endoscope == 'en panne':
-                    nature_panne = st.text_area("Nature de la panne*", 
-                                            placeholder="Décrivez la nature de la panne...",
-                                            help="Ce champ est obligatoire pour les endoscopes en panne")
-                else:
-                    nature_panne = st.text_area("Observations sur l'état", 
-                                            placeholder="Optionnel - Observations générales",
-                                            help="Champ optionnel quand l'endoscope est fonctionnel")
-            
-            if st.form_submit_button(" Enregistrer Rapport de Stérilisation"):
-                # Validation
-                if not selected_id or not medecin_responsable or not salle or not type_acte:
-                    st.error("Veuillez remplir tous les champs obligatoires (*)")
-                elif etat_endoscope == 'en panne' and (not nature_panne or not nature_panne.strip()):
-                    st.error("Veuillez spécifier la nature de la panne pour un endoscope en panne")
-                elif heure_debut_time >= heure_fin_time:
-                    st.error("L'heure de fin doit être postérieure à l'heure de début")
-                else:
-                    nom_operateur = get_username()
-                    # Re-fetch details inside the submit block to be safe
-                    selected_endoscope_details = endoscopes_df[endoscopes_df['id'] == selected_id].iloc[0]
-                    endoscope_name = selected_endoscope_details['designation']
-                    numero_serie_val = selected_endoscope_details['numero_serie']
-                    
-                    # Nettoyer la valeur nature_panne
-                    nature_panne_cleaned = nature_panne.strip() if nature_panne else None
-                    if etat_endoscope == 'fonctionnel' and not nature_panne_cleaned:
-                        nature_panne_cleaned = None
+                # Update session state when state changes
+                if st.session_state.steril_form_data['etat_endoscope'] != etat_endoscope:
+                    st.session_state.steril_form_data['etat_endoscope'] = etat_endoscope
 
-                    if db.add_sterilisation_report(
-                        nom_operateur, endoscope_name, numero_serie_val, medecin_responsable,
-                        date_desinfection, type_desinfection, cycle, test_etancheite,
-                        heure_debut, heure_fin, "N/A", salle, type_acte,
-                        etat_endoscope, nature_panne_cleaned, nom_operateur
-                    ):
-                        st.success("Rapport de stérilisation enregistré avec succès!")
-                        st.rerun()
-                    else:
-                        st.error("Erreur lors de l'enregistrement - Vérifiez le format des données")
+                # FIXED: Single text area that maintains value properly
+                if etat_endoscope == 'en panne':
+                    label_text = " Nature de la panne* (OBLIGATOIRE)"
+                    placeholder_text = "Décrivez précisément la nature de la panne..."
+                    help_text = " Ce champ est OBLIGATOIRE pour les endoscopes en panne"
+                else:
+                    label_text = " Observations générales (optionnel)"
+                    placeholder_text = "Observations générales sur l'état de l'endoscope..."
+                    help_text = "ℹ Champ optionnel pour les endoscopes fonctionnels"
+                
+                # Always show the text area with the current value
+                nature_panne = st.text_area(
+                    label_text,
+                    value=st.session_state.steril_form_data.get('nature_panne', ''),
+                    placeholder=placeholder_text,
+                    help=help_text,
+                    key="nature_panne_field"
+                )
+                
+                # Update session state with current input
+                st.session_state.steril_form_data['nature_panne'] = nature_panne
+            
+            # Submit button and validation (MUST be inside the form)
+            submitted = st.form_submit_button(" Enregistrer Rapport de Stérilisation")
+            
+            if submitted:                
+                # Validation with detailed error messages
+                validation_errors = []
+                
+                # Required field checks
+                if not selected_id:
+                    validation_errors.append(" Veuillez sélectionner un endoscope")
+                    
+                if not medecin_responsable or not medecin_responsable.strip():
+                    validation_errors.append(" Veuillez renseigner le médecin responsable")
+                    
+                if not salle or not salle.strip():
+                    validation_errors.append(" Veuillez renseigner la salle")
+                    
+                if not type_acte or not type_acte.strip():
+                    validation_errors.append(" Veuillez renseigner le type d'acte")
+                
+                # Nature panne check for broken endoscopes - IMPROVED VALIDATION
+                if etat_endoscope == 'en panne':
+                    if not nature_panne or not nature_panne.strip():
+                        validation_errors.append(" Pour un endoscope EN PANNE, vous DEVEZ renseigner la nature de la panne")
+                    elif len(nature_panne.strip()) < 5:
+                        validation_errors.append(" La description de la panne doit contenir au moins 5 caractères")
+                
+                # Time validation
+                if heure_debut_time >= heure_fin_time:
+                    validation_errors.append(" L'heure de fin doit être postérieure à l'heure de début")
+                
+                # Display validation errors
+                if validation_errors:
+                    st.error("**⚠️ Erreurs de validation:**")
+                    for error in validation_errors:
+                        st.error(error)
+                else:
+                    # All validations passed - save the report
+                    try:
+                        nom_operateur = get_username()
+                        selected_endoscope_details = endoscopes_df[endoscopes_df['id'] == selected_id].iloc[0]
+                        endoscope_name = selected_endoscope_details['designation']
+                        numero_serie_val = selected_endoscope_details['numero_serie']
+                        
+                        # Process nature_panne based on state
+                        if etat_endoscope == 'en panne':
+                            final_nature_panne = nature_panne.strip()
+                        else:
+                            # For functional endoscopes, save observations or None
+                            final_nature_panne = nature_panne.strip() if nature_panne and nature_panne.strip() else None
+                        
+                        st.write(f"**SAVING:** final_nature_panne = '{final_nature_panne}'")
+                        
+                        # Save to database
+                        if db.add_sterilisation_report(
+                            nom_operateur, endoscope_name, numero_serie_val, medecin_responsable,
+                            date_desinfection, type_desinfection, cycle, test_etancheite,
+                            heure_debut, heure_fin, "N/A", salle.strip(), type_acte.strip(),
+                            etat_endoscope, final_nature_panne, nom_operateur
+                        ):
+                            # Reset session state on successful submission
+                            st.session_state.steril_form_data = {
+                                'nature_panne': '',
+                                'etat_endoscope': 'fonctionnel'
+                            }
+                            st.success("✅ Rapport de stérilisation enregistré avec succès!")
+                            st.balloons()
+                            st.rerun()
+                        else:
+                            st.error(" Erreur lors de l'enregistrement dans la base de données")
+                            
+                    except Exception as e:
+                        st.error(f" Erreur système: {str(e)}")
+    
     
     with tab2:
         st.subheader("Gérer les Rapports de Stérilisation")
@@ -978,7 +1050,11 @@ def show_sterilization_interface():
                                 new_salle = st.text_input("Salle*", value=report['salle'])
                                 new_type_acte = st.text_input("Type d'acte*", value=report['type_acte'])
                                 new_etat_endoscope = st.selectbox("État de l'endoscope*", ['fonctionnel', 'en panne'], index=0 if report['etat_endoscope']=='fonctionnel' else 1)
-                                new_nature_panne = st.text_area("Nature de la panne*", value=report['nature_panne'] if report['etat_endoscope']=='en panne' else '') if new_etat_endoscope=='en panne' else None
+                                
+                                # FIXED: Always show nature_panne field for editing
+                                current_nature_value = str(report.get('nature_panne', '')) if report.get('nature_panne') not in [None, 'None', 'nan'] else ''
+                                new_nature_panne = st.text_area("Nature de la panne / Observations", value=current_nature_value)
+                                
                                 if st.form_submit_button("Enregistrer les modifications"):
                                     try:
                                         # Validate required fields
@@ -986,13 +1062,16 @@ def show_sterilization_interface():
                                                          new_medecin_responsable, new_salle, new_type_acte, 
                                                          new_heure_debut, new_heure_fin]
                                         
-                                        if not all(required_fields):
+                                        if not all(field.strip() for field in required_fields):
                                             st.error(" Veuillez remplir tous les champs obligatoires (*)")
-                                        elif new_etat_endoscope == 'en panne' and not new_nature_panne:
-                                            st.error(" Veuillez spécifier la nature de la panne")
+                                        elif new_etat_endoscope == 'en panne' and (not new_nature_panne or not new_nature_panne.strip()):
+                                            st.error(" Veuillez spécifier la nature de la panne pour un endoscope en panne")
                                         elif ":" not in new_heure_debut or ":" not in new_heure_fin:
                                             st.error("Format d'heure invalide. Utilisez HH:MM (ex: 14:30)")
                                         else:
+                                            # Process nature_panne for update
+                                            final_new_nature = new_nature_panne.strip() if new_nature_panne and new_nature_panne.strip() else None
+                                            
                                             update_fields = {
                                                 'nom_operateur': new_nom_operateur,
                                                 'endoscope': new_endoscope,
@@ -1007,7 +1086,7 @@ def show_sterilization_interface():
                                                 'salle': new_salle,
                                                 'type_acte': new_type_acte,
                                                 'etat_endoscope': new_etat_endoscope,
-                                                'nature_panne': new_nature_panne,
+                                                'nature_panne': final_new_nature,
                                                 'procedure_medicale': report.get('procedure_medicale', 'N/A')
                                             }
                                             
@@ -1026,7 +1105,6 @@ def show_sterilization_interface():
                 st.info("Aucun rapport correspondant aux filtres")
         else:
             st.info("Aucun rapport de stérilisation disponible")
-
 def show_archives_interface():
     """Archives interface for all users with filtering and sorting"""
     st.title("Archives")
@@ -1218,6 +1296,52 @@ def show_archives_interface():
                         st.error(f"Erreur lors de la génération du PDF: {str(e)}")
             else:
                 st.info("Aucun endoscope dans l'inventaire.")
+
+def main():
+    # Check authentication
+    if not check_authentication():
+        login_form()
+        return
+    
+    # Sidebar navigation
+    st.sidebar.image('attached_assets/logo.webp', use_container_width=True)
+    st.sidebar.title(f"Bonjour {get_username()}")
+    st.sidebar.write(f"**Rôle:** {get_user_role()}")
+    
+    # Navigation menu based on role
+    user_role = get_user_role()
+    
+    if user_role == 'admin':
+        menu_options = ["Dashboard", "Gestion des Utilisateurs", "Archives"]
+    elif user_role == 'biomedical':
+        menu_options = ["Dashboard", "Gestion Inventaire", "Archives"]
+    elif user_role == 'sterilisation':
+        menu_options = ["Dashboard", "Rapports de Stérilisation", "Archives"]
+    else:
+        menu_options = ["Dashboard"]
+    
+    selected_page = st.sidebar.selectbox("Navigation", menu_options)
+    
+    if st.sidebar.button("Déconnexion"):
+        logout()
+    
+    # Main content based on selected page
+    if selected_page == "Dashboard":
+        show_dashboard()
+        
+        # Add debug section
+        st.divider()
+        if st.button("🔧 Check Salle Database"):
+            debug_salle_database()
+            
+    elif selected_page == "Gestion des Utilisateurs":
+        show_admin_interface()
+    elif selected_page == "Gestion Inventaire":
+        show_biomedical_interface()
+    elif selected_page == "Rapports de Stérilisation":
+        show_sterilization_interface()
+    elif selected_page == "Archives":
+        show_archives_interface()
 
 if __name__ == "__main__":
     main()
