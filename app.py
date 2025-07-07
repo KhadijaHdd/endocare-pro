@@ -262,35 +262,6 @@ def load_css_file(css_file_path):
     except FileNotFoundError:
         st.error(f"CSS file not found: {css_file_path}")
 
-def debug_salle_database():
-    """Check what's actually in the salle field"""
-    st.subheader("🔍 Database Salle Debug")
-    
-    query = """
-    SELECT id, endoscope, salle, LENGTH(salle) as salle_length, 
-           CASE 
-               WHEN salle = '' THEN 'EMPTY STRING'
-               WHEN salle IS NULL THEN 'NULL'
-               ELSE 'HAS VALUE'
-           END as salle_status
-    FROM sterilisation_reports 
-    WHERE etat_endoscope = 'en panne'
-    ORDER BY id DESC 
-    LIMIT 5
-    """
-    
-    try:
-        conn = db.get_connection()
-        result = conn.execute(query).fetchall()
-        
-        st.write("**Direct Database Results:**")
-        for row in result:
-            st.write(f"ID: {row[0]}, Endoscope: {row[1]}, Salle: '{row[2]}', Length: {row[3]}, Status: {row[4]}")
-        
-        conn.close()
-    except Exception as e:
-        st.error(f"Error: {e}")
-
 def show_dashboard():
     """Display dashboard with analytics"""
     col1, col2, col3 = st.columns([1, 2, 1])
