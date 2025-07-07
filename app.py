@@ -1299,11 +1299,6 @@ def main():
     # Main content based on selected page
     if selected_page == "Dashboard":
         show_dashboard()
-        
-        # Add debug section
-        st.divider()
-        if st.button("🔧 Check Salle Database"):
-            debug_salle_database()
             
     elif selected_page == "Gestion des Utilisateurs":
         show_admin_interface()
