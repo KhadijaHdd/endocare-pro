@@ -26,17 +26,74 @@ from auth import check_authentication, login_form, logout, get_user_role, get_us
 from email_alerts import EmailAlertManager
 import streamlit as st
 
-# CSS pour masquer le footer et le menu Streamlit
+# Enhanced CSS to hide all Streamlit branding and UI elements
 hide_streamlit_style = """
-            <style>
-            #MainMenu {visibility: hidden;}
-            footer {visibility: hidden;}
-            header {visibility: hidden;}
-            .viewerBadge_link__qRIco {display: none !important;}
-            </style>
-            """
-st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+<style>
+/* Hide main menu */
+#MainMenu {visibility: hidden !important;}
 
+/* Hide footer */
+footer {visibility: hidden !important;}
+
+/* Hide header */
+header {visibility: hidden !important;}
+
+/* Hide the viewer badge (GitHub icon) */
+.viewerBadge_link__qRIco {display: none !important;}
+
+/* Hide all elements with 'github' in their class */
+[class*="github"] {display: none !important;}
+
+/* Hide deployment/share buttons */
+.stDeployButton {display: none !important;}
+.stActionButton {display: none !important;}
+
+/* Hide the "Made with Streamlit" text */
+.css-cio0dv {display: none !important;}
+
+/* Hide any element containing "github" text */
+[title*="github" i] {display: none !important;}
+[aria-label*="github" i] {display: none !important;}
+
+/* Hide streamlit branding */
+.streamlit-branding {display: none !important;}
+
+/* Hide any links to github */
+a[href*="github"] {display: none !important;}
+
+/* Additional mobile-specific hiding */
+@media (max-width: 768px) {
+    .viewerBadge_link__qRIco {display: none !important;}
+    .viewerBadge_container__r5tak {display: none !important;}
+    [data-testid="stToolbar"] {display: none !important;}
+    .stActionButton {display: none !important;}
+    .stDeployButton {display: none !important;}
+    
+    /* Hide any floating action buttons */
+    .css-1rs6os {display: none !important;}
+    .css-17eq0hr {display: none !important;}
+}
+
+/* Hide any element with github in its content */
+*[class*="github"]:not(script):not(style) {
+    display: none !important;
+    visibility: hidden !important;
+}
+
+/* Hide toolbar and action buttons */
+[data-testid="stToolbar"] {
+    display: none !important;
+}
+
+/* Force hide any remaining streamlit branding */
+.css-1rs6os, .css-17eq0hr, .css-cio0dv {
+    display: none !important;
+    visibility: hidden !important;
+}
+</style>
+"""
+
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
 # Page configuration
 st.set_page_config(
