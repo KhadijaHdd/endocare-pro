@@ -24,6 +24,18 @@ import os
 from database import DatabaseManager
 from auth import check_authentication, login_form, logout, get_user_role, get_username, require_role
 from email_alerts import EmailAlertManager
+import streamlit as st
+
+# CSS pour masquer le footer et le menu Streamlit
+hide_streamlit_style = """
+            <style>
+            #MainMenu {visibility: hidden;}
+            footer {visibility: hidden;}
+            header {visibility: hidden;}
+            .viewerBadge_link__qRIco {display: none !important;}
+            </style>
+            """
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
 
 # Page configuration
